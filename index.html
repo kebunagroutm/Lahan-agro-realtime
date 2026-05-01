@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Peta Lahan Realtime</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style> 
+        /* Baris 10: Styling Peta dan Label */
+        body {
+            padding: 0;
+            margin: 0;
+        }
+
+        html, body, #map {
+            height: 100%;
+            width: 100vw
+        }
+        
+        .info.legend { background: white; padding: 10px; border-radius: 5px; line-height: 24px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+        
+        .label-lahan {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: white !important;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000; /* Shadow agar teks putih terbaca jelas */
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+    var map = L.map('map', { maxZoom: 55 }).setView([-7.127915, 112.725744], 20);
+
+    L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 22, maxNativeZoom: 20, subdomains:['mt0','mt1','mt2','mt3'],
+        attribution: '&copy; Google Maps'
+    }).addTo(map);
+
+    // Legenda diperbarui agar informatif
+    var legend = L.control({position: 'bottomright'});
+    legend.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'info legend');
+        div.innerHTML += '<b>Legenda Lahan:</b><br>';
+        div.innerHTML += '<i style="background: #2ecc71; width: 12px; height: 12px; display: inline-block;"></i> ID 1/3: Kosong<br>';
+        div.innerHTML += '<i style="background: #f39c12; width: 12px; height: 12px; display: inline-block;"></i> ID 1/3: Menunggu Verifikasi<br>';
+        div.innerHTML += '<i style="background: #ff4d4d; width: 12px; height: 12px; display: inline-block;"></i> ID 1/3: Terpakai<br>';
+        div.innerHTML += '<i style="background: #ffffff; width: 12px; height: 12px; display: inline-block;"></i> ID 2: Melon<br>';
+        div.innerHTML += '<i style="background: #ffc0cb; width: 12px; height: 12px; display: inline-block;"></i> ID 4: MATAPETA<br>';
+        div.innerHTML += '<i style="background: #0000ff; width: 12px; height: 12px; display: inline-block;"></i> ID 5: Praktikum';
+        return div;
+    };
+    legend.addTo(map);
+
+    function buatObjekTanggal(input) {
+        if (!input) return null;
+        if (typeof input === 'string' && input.includes('/')) {
+            const p = input.split('/');
+            return new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+        }
+        const d = new Date(input);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function getStyleById(feature, dataAtribut, waktuSekarang) {
+        const idLahan = feature.properties.id; 
+        const namaLahan = feature.properties.Nama_Lahan;
+        const match = [...dataAtribut].reverse().find(item => {
+            // Pastikan sel Kode_Lahan di Sheets tidak kosong
+            if (!item.Kode_Lahan) return false;
+    
+            // Pecah teks berdasarkan koma, lalu bersihkan spasi di kiri-kanannya
+            const listLahan = item.Kode_Lahan.toString().split(',').map(lahan => lahan.trim());
+    
+            // Cek apakah nama lahan di peta ada di dalam daftar listLahan dari Sheets
+            return listLahan.includes(feature.properties.Nama_Lahan);
+        });
+        
+        let terpakai = false;
+
+        // Pengecekan aman: pastikan match.status_Verifikasi ada isinya, lalu cek apakah isinya verified
+        let isVerified = false;
+        if (match && match.Keterangan) {
+            const ketText = match.Keterangan.toLowerCase(); // Ubah jadi huruf kecil semua
+            if (ketText === "terverisikasi" || ketText === "terverifikasi") { // Cek kedua kemungkinan
+                isVerified = true;
+            }
+        }
+        
+        let statusLahan = "Kosong";
+        if (match && match.Selesai_Penelitian) {
+            const tglSelesai = buatObjekTanggal(match.Selesai_Penelitian);
+            if (tglSelesai && tglSelesai > waktuSekarang) {
+                statusLahan = isVerified ? "terpakai" : "menunggu";
+            }
+        }
+
+        let warna;
+        if (idLahan === 2) warna = "#ffffff";
+        else if (idLahan === 4) warna = "#ffc0cb";
+        else if (idLahan === 5) warna = "#0000ff";
+        else {
+            // logika warna untuk id 1 dan 3
+            if (statusLahan === "terpakai") warna = "#ff4d4d"; // Merah
+            else if (statusLahan === "menunggu") warna = "#f39c12"; // oranye
+            else warna = "#2ecc71"; // hijau
+        }
+       // switch (idLahan) {
+         //   case 0: warna = "#808080"; break;
+          //  case 1: warna = terpakai ? "#ff4d4d" : "#2ecc71"; break;
+          //  case 2: warna = "#ffff00"; break;
+          //  case 3: warna = terpakai ? "#ff4d4d" : "#2ecc71"; break;
+          //  case 4: warna = "#ffc0cb"; break;
+          //  case 5: warna = "#0000ff"; break;
+          //  default: warna = "#ffffff";
+       // }
+        return { fillColor: warna, weight: 1.5, opacity: 1, color: 'white', fillOpacity: 0.7 };
+    }
+    
+    async function loadPeta() {
+        try {
+            const responseAttr = await fetch('https://script.google.com/macros/s/AKfycbyKUdeTCmStty-HhoqpsuX1ria7b4bMyxTtRfaDsnL4hb01GX_HoDL3prlu0K_iNvZ0lQ/exec');
+            const dataAtribut = await responseAttr.json();
+            const responseGeo = await fetch('Lahan_Agro.geojson'); 
+            const dataGeo = await responseGeo.json();
+            const waktuSekarang = new Date();
+
+            L.geoJSON(dataGeo, {
+                style: function(feature) {
+                    return getStyleById(feature, dataAtribut, waktuSekarang);
+                },
+                onEachFeature: function (feature, layer) {
+                    // PERBAIKAN LABEL: Jika Kode_Lahan NULL, tampilkan ID
+                    const teksLabel = feature.properties.Nama_Lahan && feature.properties.Nama_Lahan !== "NULL" 
+                                      ? feature.properties.Nama_Lahan 
+                                      : "ID: " + feature.properties.id;
+
+                    layer.bindTooltip(teksLabel, {
+                        permanent: true,
+                        direction: "center",
+                        className: "label-lahan"
+                    }).openTooltip();
+                    
+                    const match = [...dataAtribut].reverse().find(item => {
+                        // Pastikan sel Kode_Lahan di Sheets tidak kosong
+                        if (!item.Kode_Lahan) return false;
+    
+                        // Pecah teks berdasarkan koma, lalu bersihkan spasi di kiri-kanannya
+                        const listLahan = item.Kode_Lahan.toString().split(',').map(lahan => lahan.trim());
+    
+                        // Cek apakah nama lahan di peta ada di dalam daftar listLahan dari Sheets
+                        return listLahan.includes(feature.properties.Nama_Lahan);
+                    });
+                    const tglSelesai = match ? buatObjekTanggal(match.Selesai_Penelitian) : null;
+                    const isAktif = tglSelesai && tglSelesai > waktuSekarang;
+
+                    // cek status verifikasi
+                    let isVerified = false;
+                    if (match && match.Keterangan) {
+                        const ketText = match.Keterangan.toLowerCase();
+                        if (ketText === "terverisikasi" || ketText === "terverifikasi") {
+                            isVerified = true;
+                        }
+                    }
+                    let popupcontent = `<b>Lahan: ${feature.properties.Nama_Lahan || "Tanpa Nama"}</b><br>ID: ${feature.properties.id}`;
+                    if (match && isAktif && isVerified) {
+                        popupcontent += `
+                            <hr>
+                            <b>Status: TERPAKAI (Terverifikasi)</b><br>
+                            Nama: ${match.Nama}<br>
+                            Nim: ${match.NIM}<br>
+                            Judul: ${match.Judul_Penelitian}<br>
+                            Dosen: ${match.Dosen_Pembimbing}<br>
+                            Selesai: ${tglSelesai.toLocaleDateString('id-ID')}`;
+                    } else if (match && isAktif && !isVerified){
+                        // kondisi 2 : baru isi form, belum verifikasi
+                        popupcontent += `
+                        <hr>
+                        <b style="color:#d35400;">Status: MENUNGGU VERIFIKASI (Pending)</b><br>
+                        <small>Lahan ini sedang diaujkan peminjamannya oleh <b>${match.Nama}</b> dan sedang diproses </small>`;
+                    } else {
+                        popupcontent += `<br><b>Status: KOSONG</b><br>
+                                    <small>${match ? "(Peminjaman Sebelumnya telah berakhir)" : "Belum ada peminjaman aktif"}</small>`;
+                    }
+                    layer.bindPopup(popupcontent);
+                }
+            }).addTo(map);
+            setTimeout(function(){
+                map.invalidateSize();
+            }, 400);
+        } catch (err) {
+            console.error("Error:", err);
+        }
+    }
+
+    loadPeta();
+</script>
+</body>
+</html>
