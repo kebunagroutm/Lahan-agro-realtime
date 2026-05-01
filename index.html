@@ -72,10 +72,10 @@
         const namaLahan = feature.properties.Nama_Lahan;
         const match = [...dataAtribut].reverse().find(item => {
             // Pastikan sel Kode_Lahan di Sheets tidak kosong
-            if (!item.Kode_Lahan) return false;
+            if (!item['Kode petak lahan/GH (Contoh: LH_01 atau LH_1, LH_2 (untuk lahan) atau GH_1 atau GH_1, GH_2 (untuk GH))']) return false;
     
             // Pecah teks berdasarkan koma, lalu bersihkan spasi di kiri-kanannya
-            const listLahan = item.Kode_Lahan.toString().split(',').map(lahan => lahan.trim());
+            const listLahan = item['Kode petak lahan/GH (Contoh: LH_01 atau LH_1, LH_2 (untuk lahan) atau GH_1 atau GH_1, GH_2 (untuk GH))'].toString().split(',').map(lahan => lahan.trim());
     
             // Cek apakah nama lahan di peta ada di dalam daftar listLahan dari Sheets
             return listLahan.includes(feature.properties.Nama_Lahan);
@@ -93,8 +93,8 @@
         }
         
         let statusLahan = "Kosong";
-        if (match && match.Selesai_Penelitian) {
-            const tglSelesai = buatObjekTanggal(match.Selesai_Penelitian);
+        if (match && match['Selesai peminjaman']) {
+            const tglSelesai = buatObjekTanggal(match['Selesai peminjaman']);
             if (tglSelesai && tglSelesai > waktuSekarang) {
                 statusLahan = isVerified ? "terpakai" : "menunggu";
             }
@@ -148,15 +148,15 @@
                     
                     const match = [...dataAtribut].reverse().find(item => {
                         // Pastikan sel Kode_Lahan di Sheets tidak kosong
-                        if (!item.Kode_Lahan) return false;
+                        if (!item['Kode petak lahan/GH (Contoh: LH_01 atau LH_1, LH_2 (untuk lahan) atau GH_1 atau GH_1, GH_2 (untuk GH))']) return false;
     
                         // Pecah teks berdasarkan koma, lalu bersihkan spasi di kiri-kanannya
-                        const listLahan = item.Kode_Lahan.toString().split(',').map(lahan => lahan.trim());
+                        const listLahan = item['Kode petak lahan/GH (Contoh: LH_01 atau LH_1, LH_2 (untuk lahan) atau GH_1 atau GH_1, GH_2 (untuk GH))'].toString().split(',').map(lahan => lahan.trim());
     
                         // Cek apakah nama lahan di peta ada di dalam daftar listLahan dari Sheets
                         return listLahan.includes(feature.properties.Nama_Lahan);
                     });
-                    const tglSelesai = match ? buatObjekTanggal(match.Selesai_Penelitian) : null;
+                    const tglSelesai = match ? buatObjekTanggal(match['Selesai peminjaman']) : null;
                     const isAktif = tglSelesai && tglSelesai > waktuSekarang;
 
                     // cek status verifikasi
@@ -172,10 +172,10 @@
                         popupcontent += `
                             <hr>
                             <b>Status: TERPAKAI (Terverifikasi)</b><br>
-                            Nama: ${match.Nama}<br>
+                            Nama: ${match['Nama']}<br>
                             Nim: ${match.NIM}<br>
-                            Judul: ${match.Judul_Penelitian}<br>
-                            Dosen: ${match.Dosen_Pembimbing}<br>
+                            Judul: ${match['Judul Penelitian']}<br>
+                            Dosen: ${match['Dosen Pembimbing]}<br>
                             Selesai: ${tglSelesai.toLocaleDateString('id-ID')}`;
                     } else if (match && isAktif && !isVerified){
                         // kondisi 2 : baru isi form, belum verifikasi
