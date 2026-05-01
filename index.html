@@ -126,7 +126,7 @@
         try {
             const responseAttr = await fetch('https://script.google.com/macros/s/AKfycbzECW2GYPzz2Qu-Vo0AJDWqd1OlnwG6AUUvd1vqNPs5xJM59vPj54-iAQ-j-nt39ios/exec');
             const dataAtribut = await responseAttr.json();
-            const responseGeo = await fetch('Lahan_Agro.geojson'); 
+            const responseGeo = await fetch('shp_Lahan_Agro.geojson'); 
             const dataGeo = await responseGeo.json();
             const waktuSekarang = new Date();
 
